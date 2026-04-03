@@ -12,16 +12,16 @@ TRAILER_PRESETS = {
 }
 
 EXAMPLE_ITEMS = [
-    (1, "Palette EUR #1", 1.2, 0.8, 1.2, 400, False, True, COLORS[0]),
-    (2, "Palette EUR #2", 1.2, 0.8, 1.2, 380, False, True, COLORS[1]),
-    (3, "Palette EUR #3", 1.2, 0.8, 1.0, 350, False, True, COLORS[2]),
-    (4, "Palette EUR #4", 1.2, 0.8, 1.0, 300, False, True, COLORS[3]),
-    (5, "Gros colis", 2.0, 1.0, 1.5, 800, False, True, COLORS[4]),
-    (6, "Palette lourde", 1.2, 0.8, 1.4, 1200, False, False, COLORS[5]),
-    (7, "Caisse fragile A", 0.6, 0.4, 0.5, 30, True, False, COLORS[6]),
-    (8, "Caisse fragile B", 0.8, 0.6, 0.4, 20, True, False, COLORS[7]),
-    (9, "Colis divers #1", 0.8, 0.6, 0.6, 150, False, True, COLORS[8]),
-    (10, "Colis divers #2", 0.6, 0.6, 0.8, 120, False, True, COLORS[9]),
+    (1, "Palette EUR #1", 1.2, 0.8, 1.2, 400, False, True, False, COLORS[0]),
+    (2, "Palette EUR #2", 1.2, 0.8, 1.2, 380, False, True, False, COLORS[1]),
+    (3, "Palette EUR #3", 1.2, 0.8, 1.0, 350, False, True, False, COLORS[2]),
+    (4, "Palette EUR #4", 1.2, 0.8, 1.0, 300, False, True, False, COLORS[3]),
+    (5, "Gros colis", 2.0, 1.0, 1.5, 800, False, True, False, COLORS[4]),
+    (6, "Palette lourde", 1.2, 0.8, 1.4, 1200, False, False, True, COLORS[5]),
+    (7, "Caisse fragile A", 0.6, 0.4, 0.5, 30, True, False, False, COLORS[6]),
+    (8, "Caisse fragile B", 0.8, 0.6, 0.4, 20, True, False, False, COLORS[7]),
+    (9, "Colis non gerbable", 0.8, 0.6, 0.6, 150, False, True, True, COLORS[8]),
+    (10, "Colis divers #2", 0.6, 0.6, 0.8, 120, False, True, False, COLORS[9]),
 ]
 
 
@@ -146,7 +146,7 @@ def main():
             st.metric("Volume liste", f"{total_v:.2f} m³")
 
     # ── Tabs ─────────────────────────────────────────────────────────────────
-    tab1, tab2 = st.tabs(["📦 Marchandises", "🗺️ Résultat 3D"])
+    tab1, tab2, tab3 = st.tabs(["📦 Marchandises", "🗺️ Résultat 3D", "📂 Import Longitude"])
 
     # ── Tab 1: Add items ──────────────────────────────────────────────────────
     with tab1:
@@ -161,9 +161,10 @@ def main():
                 width  = c2.number_input("l (m)", 0.1,  3.0, 0.8, 0.05)
                 height = c3.number_input("H (m)", 0.1,  3.0, 1.0, 0.05)
                 weight = st.number_input("Poids (kg)", 0.1, 20000.0, 400.0, 10.0)
-                c4, c5 = st.columns(2)
-                fragile    = c4.checkbox("🔴 Fragile")
-                can_rotate = c5.checkbox("🔄 Rotation OK", value=True)
+                c4, c5, c6 = st.columns(3)
+                fragile      = c4.checkbox("🔴 Fragile")
+                non_gerbable = c5.checkbox("🚫 Non gerbable")
+                can_rotate   = c6.checkbox("🔄 Rotation OK", value=True)
                 qty = st.number_input("Quantité", 1, 50, 1)
                 ok = st.form_submit_button("➕ Ajouter", use_container_width=True, type="primary")
 
@@ -175,7 +176,7 @@ def main():
                         st.session_state.cargo.append(Item(
                             st.session_state.counter, label,
                             length, width, height, weight,
-                            fragile, can_rotate, color
+                            fragile, can_rotate, non_gerbable, color
                         ))
                     st.session_state.result = None
                     st.success(f"✅ {int(qty)}× '{name.strip()}' ajouté(s)")
@@ -193,6 +194,7 @@ def main():
                         'Poids (kg)': it.weight,
                         'Vol (m³)': round(it.volume, 3),
                         'Fragile': '🔴' if it.fragile else '',
+                        'Non gerbable': '🚫' if it.non_gerbable else '',
                         'Rotation': '✅' if it.can_rotate else '❌',
                     })
                 st.dataframe(pd.DataFrame(rows), hide_index=True, use_container_width=True)
@@ -266,6 +268,7 @@ def main():
                     'H (m)': round(p.h, 2),
                     'Poids (kg)': p.item.weight,
                     'Fragile': '🔴' if p.item.fragile else '',
+                    'Non gerbable': '🚫' if p.item.non_gerbable else '',
                 })
             df_plan = pd.DataFrame(plan)
             st.dataframe(df_plan, hide_index=True, use_container_width=True)
@@ -275,6 +278,109 @@ def main():
                 "📥 Télécharger le plan (CSV)",
                 csv, "plan_chargement.csv", "text/csv"
             )
+
+
+    # ── Tab 3: Import Longitude ────────────────────────────────────────────
+    with tab3:
+        st.subheader("📂 Importer depuis Longitude")
+        st.markdown("""
+        Exportez vos marchandises depuis **Longitude** en format **CSV** ou **Excel (.xlsx)**.
+
+        Le fichier doit contenir ces colonnes (les noms sont flexibles) :
+        - **Nom** (ou Référence, Désignation, Article)
+        - **Longueur** (en mètres)
+        - **Largeur** (en mètres)
+        - **Hauteur** (en mètres)
+        - **Poids** (en kg)
+        - **Fragile** (optionnel : oui/non, 1/0, true/false)
+        - **Non gerbable** (optionnel : oui/non, 1/0, true/false)
+        - **Quantité** (optionnel, défaut = 1)
+        """)
+
+        uploaded = st.file_uploader("Choisir un fichier CSV ou Excel", type=["csv", "xlsx", "xls"])
+
+        if uploaded:
+            try:
+                if uploaded.name.endswith('.csv'):
+                    df = pd.read_csv(uploaded, sep=None, engine='python')
+                else:
+                    df = pd.read_excel(uploaded)
+
+                st.dataframe(df, use_container_width=True)
+
+                # Auto-detect columns
+                col_map = {}
+                for col in df.columns:
+                    cl = col.strip().lower()
+                    if cl in ('nom', 'name', 'référence', 'reference', 'désignation', 'designation', 'article', 'libellé', 'libelle'):
+                        col_map['nom'] = col
+                    elif cl in ('longueur', 'length', 'long', 'l'):
+                        col_map['longueur'] = col
+                    elif cl in ('largeur', 'width', 'larg', 'w'):
+                        col_map['largeur'] = col
+                    elif cl in ('hauteur', 'height', 'haut', 'h'):
+                        col_map['hauteur'] = col
+                    elif cl in ('poids', 'weight', 'masse', 'kg'):
+                        col_map['poids'] = col
+                    elif cl in ('fragile',):
+                        col_map['fragile'] = col
+                    elif cl in ('non gerbable', 'nongerbable', 'non_gerbable', 'stackable', 'gerbable'):
+                        col_map['non_gerbable'] = col
+                    elif cl in ('quantité', 'quantite', 'qty', 'qté', 'quantity'):
+                        col_map['qty'] = col
+
+                required = ['nom', 'longueur', 'largeur', 'hauteur', 'poids']
+                missing = [r for r in required if r not in col_map]
+
+                if missing:
+                    st.error(f"❌ Colonnes manquantes : {', '.join(missing)}")
+                    st.info(f"Colonnes détectées : {list(df.columns)}")
+                else:
+                    st.success(f"✅ Colonnes détectées : {col_map}")
+
+                    if st.button("📥 Importer les marchandises", type="primary"):
+                        count = 0
+                        for _, row in df.iterrows():
+                            nom = str(row[col_map['nom']])
+                            longueur = float(row[col_map['longueur']])
+                            largeur = float(row[col_map['largeur']])
+                            hauteur = float(row[col_map['hauteur']])
+                            poids = float(row[col_map['poids']])
+
+                            fragile = False
+                            if 'fragile' in col_map:
+                                v = str(row[col_map['fragile']]).strip().lower()
+                                fragile = v in ('oui', 'yes', '1', 'true', 'vrai', 'x')
+
+                            non_gerb = False
+                            if 'non_gerbable' in col_map:
+                                v = str(row[col_map['non_gerbable']]).strip().lower()
+                                non_gerb = v in ('oui', 'yes', '1', 'true', 'vrai', 'x')
+
+                            qty = 1
+                            if 'qty' in col_map:
+                                try:
+                                    qty = int(row[col_map['qty']])
+                                except (ValueError, TypeError):
+                                    qty = 1
+
+                            for i in range(qty):
+                                st.session_state.counter += 1
+                                color = COLORS[st.session_state.counter % len(COLORS)]
+                                label = nom if qty == 1 else f"{nom} #{i+1}"
+                                st.session_state.cargo.append(Item(
+                                    st.session_state.counter, label,
+                                    longueur, largeur, hauteur, poids,
+                                    fragile, True, non_gerb, color
+                                ))
+                                count += 1
+
+                        st.session_state.result = None
+                        st.success(f"✅ {count} article(s) importé(s) ! Allez dans l'onglet Marchandises.")
+                        st.rerun()
+
+            except Exception as e:
+                st.error(f"❌ Erreur de lecture : {e}")
 
 
 if __name__ == "__main__":

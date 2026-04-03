@@ -19,6 +19,7 @@ class Item:
     weight: float
     fragile: bool = False
     can_rotate: bool = True
+    non_gerbable: bool = False
     color: str = '#4ECDC4'
 
     def get_rotations(self) -> List[Tuple[float, float, float]]:
@@ -79,8 +80,9 @@ class TrailerOptimizer:
                 return False
 
         # Fragility: new item must NOT be placed on top of a fragile item
+        # Non gerbable: nothing can be stacked on top of a non-stackable item
         for p in self.placements:
-            if p.item.fragile:
+            if p.item.fragile or p.item.non_gerbable:
                 if abs(z - (p.z + p.h)) < tol:
                     ox = min(x + l, p.x + p.l) - max(x, p.x)
                     oy = min(y + w, p.y + p.w) - max(y, p.y)

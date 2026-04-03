@@ -20,6 +20,7 @@ class Item:
     fragile: bool = False
     can_rotate: bool = True
     non_gerbable: bool = False
+    lot: str = ''
     color: str = '#4ECDC4'
 
     def get_rotations(self) -> List[Tuple[float, float, float]]:
